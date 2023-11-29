@@ -125,6 +125,9 @@ function escapeCSS(str) {
 }
 
 function hasToken(newToken) {
+    if(!tokens.length) {
+        return false;
+    }
     let{tag, attribute, tagNumber, value} = newToken;
     return tokens.find(tokenObject => tag === tokenObject.tag && attribute === tokenObject.attribute && tagNumber === tokenObject.tagNumber && value === tokenObject.value);
 }
