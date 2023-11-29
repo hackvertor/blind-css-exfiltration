@@ -3,8 +3,8 @@ const url = require('url');
 const port = 5001;
 
 const HOSTNAME = "http://localhost:5001";
-const ELEMENTS = ["input","textarea","form"];
-const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"]};
+const ELEMENTS = ["input","textarea","form","a"];
+const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"],"a":["href"]};
 const MAX_ELEMENTS = 20;
 const MAX_VALUE = 50;
 const WAIT_TIME_MS = 250;
@@ -12,7 +12,7 @@ const WAIT_TIME_MS = 250;
 const CHARS = "abcdefghijklmnopqrstuvwxyz0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~".split('');
 
 var stop = false, n = 0, prefixes = {__proto__:null};
-var tokens = [], foundToken = false, currentElementPos = 0;
+var tokens = [], foundToken = false, currentElementPos = 0, completeTags = [];
 
 const requestHandler = (request, response) => {
     let req = url.parse(request.url, url);
@@ -46,11 +46,9 @@ const requestHandler = (request, response) => {
                         }
                     }                
                 }
-            }
-            //console.log('\tleak: waiting others...');   
+            }         
         break;
-        case "/next":                     
-            //console.log('\tquery: waiting others...');
+        case "/next":                             
             setTimeout(x=>{            
                 if(!foundToken) {
                     checkCompleted(response);
