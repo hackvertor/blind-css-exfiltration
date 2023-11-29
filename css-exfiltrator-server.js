@@ -12,7 +12,7 @@ const WAIT_TIME_MS = 250;
 const CHARS = "abcdefghijklmnopqrstuvwxyz0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~".split('');
 
 var stop = false, n = 0, prefixes = {__proto__:null};
-var tokens = [], foundToken = false, currentElementPos = 0, completeTags = [];
+var tokens = [], foundToken = false, currentElementPos = 0;
 
 const requestHandler = (request, response) => {
     let req = url.parse(request.url, url);
