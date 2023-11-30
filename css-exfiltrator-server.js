@@ -7,7 +7,7 @@ const HOSTNAME = "http://localhost:5001";
 const ELEMENTS = ["input","textarea","form","a"];
 const ATTRIBUTES = {__proto__:null,"input":["value","name"],"textarea":["name"],"form":["action"],"a":["href"]};
 const MAX_ELEMENTS = 20;
-const MAX_VALUE = 50;
+const MAX_VALUE = 200;
 const WAIT_TIME_MS = 500;
 const showResultsInBrowser = true;
 
