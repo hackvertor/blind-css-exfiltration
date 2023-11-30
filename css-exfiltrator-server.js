@@ -154,7 +154,7 @@ function completed(response) {
     let extractedValues = '';
     for(let tokenObject of tokens) {
         let{tag, attribute, value} = tokenObject;
-        extractedValues += `\\0aTag:\\09\\09\\09\\09 ${tag}\\0a Attribute\\09\\09\\09 ${attribute}\\0a Value\\09\\09\\09 ${value}\\0a`;
+        extractedValues += `\\0aTag:\\09\\09\\09\\09 ${tag}\\0a Attribute:\\09\\09\\09 ${attribute}\\0a Value:\\09\\09\\09 ${value}\\0a`;
     }
     response.writeHead(200, { 'Content-Type': 'text/css'});
     response.write(`
