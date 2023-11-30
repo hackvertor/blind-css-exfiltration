@@ -9,9 +9,8 @@ const ATTRIBUTES = {__proto__:null,"input":["value","name"],"textarea":["name"],
 const MAX_ELEMENTS = 20;
 const MAX_VALUE = 200;
 const WAIT_TIME_MS = 500;
-const showResultsInBrowser = true;
+const SHOW_RESULTS_IN_BROWSER = true;
 
-const HEX = "abcdef0123456789";
 const LOWER_LETTERS = "abcdefghijklmnopqrstuvwxyz";
 const UPPER_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const NUMBERS = "0123456789";
@@ -147,7 +146,7 @@ function checkCompleted(response) {
 
 function completed(response) {
     console.log("Completed.", tokens);
-    if(!showResultsInBrowser) {
+    if(!SHOW_RESULTS_IN_BROWSER) {
         response.end();
         return;
     }
