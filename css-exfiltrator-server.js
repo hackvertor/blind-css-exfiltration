@@ -159,30 +159,34 @@ function completed(response) {
             background-color: #d4edda;
             border-bottom: 5px solid #c3e6cb;
             padding: 0.75rem 1.25rem;
-            font-size: 50px;
+            font-size: 40px;
             padding: 5px;
-            height:calc(100% - 70px);
+            height:100px;
             width:100%;
             content: "CSS exfiltration complete";
             font-family:Arial;
-            box-sizing: border-box
+            box-sizing: border-box;
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
         }
         html:after{
-        color: #155724;
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-            padding: 0.75rem 1.25rem;
-            border: 1px solid transparent;
-        content: "The content on the webpage has been successfully exfiltrated and sent to a remote server. \\0a This is what has been extracted:\\0a ${extractedValues}";
-        position:fixed;
-        left:0;
-        top:50px;
-        padding:5px;
-        width: 100%;
-        height: calc(100% - 70px);
-        white-space: pre;
-        font-family:Arial;
-        box-sizing: border-box
+            color: #155724;
+                background-color: #d4edda;
+                border-color: #c3e6cb;
+                padding: 0.75rem 1.25rem;
+                border: 1px solid transparent;
+            content: "The content on the webpage has been successfully exfiltrated and sent to a remote server. \\0a This is what has been extracted:\\0a ${extractedValues}";
+            position:fixed;
+            left:0;
+            top:100px;
+            padding:5px;
+            width: 100%;
+            height: calc(100% - 100px);
+            white-space: pre;
+            font-family:Arial;
+            box-sizing: border-box;
+            z-index: 2147483647;
         }
     `);
     response.end();
