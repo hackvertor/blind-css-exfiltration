@@ -111,7 +111,6 @@ const genResponse = (response, elementNumber) => {
     response.writeHead(200, { 'Content-Type': 'text/css'});
     response.write(css);
     response.end();
-    console.log("CSS Bytes", css.length);
 };
 
 const server = http.createServer(app).listen(port, (err) => {
