@@ -10,6 +10,7 @@ const MAX_ELEMENTS = 20;
 const MAX_VALUE = 200;
 const WAIT_TIME_MS = 500;
 const SHOW_RESULTS_IN_BROWSER = true;
+const SHOW_RESULTS_IN_CONSOLE = true;
 
 const LOWER_LETTERS = "abcdefghijklmnopqrstuvwxyz";
 const UPPER_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -145,7 +146,9 @@ function checkCompleted(response) {
 }
 
 function completed(response) {
-    console.log("Completed.", tokens);
+    if(SHOW_RESULTS_IN_CONSOLE) {
+        console.log("Completed.", tokens);
+    }
     if(!SHOW_RESULTS_IN_BROWSER) {
         response.end();
         return;
