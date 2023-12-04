@@ -285,7 +285,15 @@ function generateNotSelectors(tokens, elementName, attributeName) {
 }
 
 function getIP(request) {
-    return request.ip;
+    let remoteIp = request.socket.remoteAddress;
+    if(!remoteIp.includes("127.0.0.1") && remoteIp !== "::1") {
+        return remoteIp;
+    }
+    if(typeof request.headers['x-forwarded-for'] === 'string') {
+        let ips = request.headers['x-forwarded-for'].split(',');
+        return ips.pop().trim();
+    }
+    return remoteIp;
 }
 
 function deleteOldSessions(amount) {
