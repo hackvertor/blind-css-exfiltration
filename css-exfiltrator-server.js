@@ -261,6 +261,7 @@ function completed(request, response) {
             padding:5px;
             width: 100%;
             height: calc(100% - 100px);
+            overflow: auto;
             white-space: pre;
             font-family:Arial;
             box-sizing: border-box;
@@ -286,14 +287,14 @@ function generateNotSelectors(tokens, elementName, attributeName) {
 
 function getIP(request) {
     let remoteIp = request.socket.remoteAddress;
-    if(!remoteIp.includes("127.0.0.1") && remoteIp !== "::1") {
+    if(typeof remoteIp !== 'undefined' && !remoteIp.includes("127.0.0.1") && remoteIp !== "::1") {
         return remoteIp;
     }
     if(typeof request.headers['x-forwarded-for'] === 'string') {
         let ips = request.headers['x-forwarded-for'].split(',');
         return ips.pop().trim();
     }
-    return remoteIp;
+    return "127.0.0.1";
 }
 
 function deleteOldSessions(amount) {
