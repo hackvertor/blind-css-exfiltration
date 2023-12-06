@@ -185,7 +185,7 @@ const server = http.createServer(app).listen(port, (err) => {
 });
 
 function escapeCSS(str) {
-    return str.replace(/(["\\])/,'\\$1');
+    return str.replace(/(["\\])/g,'\\$1');
 }
 
 function hasToken(tokens, newToken) {
@@ -251,7 +251,7 @@ function completed(request, response) {
     let extractedValues = '';
     for(let tokenObject of tokens) {
         let{tag, attribute, value} = tokenObject;
-        extractedValues += `\\0aTag:\\09\\09\\09\\09 ${tag}\\0a Attribute:\\09\\09\\09 ${attribute}\\0a Value:\\09\\09\\09 ${value}\\0a`;
+        extractedValues += `\\0aTag:\\09\\09\\09\\09 ${escapeCSS(tag)}\\0a Attribute:\\09\\09\\09 ${escapeCSS(attribute)}\\0a Value:\\09\\09\\09 ${escapeCSS(value)}\\0a`;
     }
     response.writeHead(200, { 'Content-Type': 'text/css'});
     response.write(`
